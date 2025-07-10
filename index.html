@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bolånekalkylator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom styles for sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0; /* gray-200 */
+            border-radius: 9999px;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+        }
+        input[type=range]:hover {
+            opacity: 1;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6; /* blue-500 */
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #3b82f6; /* blue-500 */
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        .toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 30px;
+            opacity: 0;
+            transition: opacity 0.5s, bottom 0.5s, visibility 0.5s;
+        }
+        .toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 50px;
+        }
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            header, #export-buttons, input[type=range], #scenario-manager, .toast {
+                display: none;
+            }
+            main {
+                display: block !important;
+                box-shadow: none !important;
+                border: none !important;
+            }
+            section {
+                 box-shadow: none !important;
+                 border: 1px solid #e2e8f0;
+            }
+            .container {
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-3xl">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Bolånekalkylator</h1>
+            <p class="text-slate-500 mt-2">Testa, spara och dela olika scenarier för ditt bostadsköp.</p>
+        </header>
+
+        <main class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            <!-- Input Section -->
+            <section class="bg-white p-6 rounded-2xl shadow-sm space-y-6">
+                <h2 class="text-xl font-bold border-b pb-2">Dina värden</h2>
+                
+                <!-- Köpeskilling -->
+                <div>
+                    <label for="kopeskilling" class="block text-sm font-medium text-slate-700">Köpeskilling</label>
+                    <input type="range" id="kopeskilling" min="1000000" max="12000000" step="50000" value="7000000" class="w-full mt-1">
+                    <input type="text" id="kopeskillingNum" value="7000000" class="mt-2 w-full p-2 border border-slate-300 rounded-lg text-center font-semibold">
+                </div>
+
+                <!-- Kontantinsats -->
+                <div>
+                    <label for="kontantinsats" class="block text-sm font-medium text-slate-700">Kontantinsats</label>
+                    <input type="range" id="kontantinsats" min="700000" max="3500000" step="25000" value="1600000" class="w-full mt-1">
+                    <input type="text" id="kontantinsatsNum" value="1600000" class="mt-2 w-full p-2 border border-slate-300 rounded-lg text-center font-semibold">
+                </div>
+
+                <!-- Räntesats -->
+                <div>
+                    <label for="ranta" class="block text-sm font-medium text-slate-700">Räntesats (%)</label>
+                    <input type="range" id="ranta" min="1" max="10" step="0.05" value="2.8" class="w-full mt-1">
+                    <input type="number" id="rantaNum" value="2.8" step="0.25" class="mt-2 w-full p-2 border border-slate-300 rounded-lg text-center font-semibold">
+                </div>
+
+                <!-- Årsinkomst -->
+                <div>
+                    <label for="arsinkomst" class="block text-sm font-medium text-slate-700">Hushållets årsinkomst (före skatt)</label>
+                    <input type="range" id="arsinkomst" min="300000" max="4000000" step="10000" value="1488000" class="w-full mt-1">
+                    <input type="text" id="arsinkomstNum" value="1488000" class="mt-2 w-full p-2 border border-slate-300 rounded-lg text-center font-semibold">
+                </div>
+
+                <!-- Extra amortering -->
+                <div>
+                    <label for="extraAmortering" class="block text-sm font-medium text-slate-700">Extra amortering /mån</label>
+                    <input type="range" id="extraAmortering" min="0" max="20000" step="500" value="0" class="w-full mt-1">
+                    <input type="text" id="extraAmorteringNum" value="0" class="mt-2 w-full p-2 border border-slate-300 rounded-lg text-center font-semibold">
+                </div>
+            </section>
+
+            <!-- Result Section -->
+            <section class="bg-white p-6 rounded-2xl shadow-sm space-y-4">
+                <h2 class="text-xl font-bold border-b pb-2">Resultat</h2>
+
+                <!-- Total Månadskostnad -->
+                <div class="bg-blue-50 p-4 rounded-lg text-center">
+                    <p class="text-sm text-blue-800">Total månadskostnad (före avdrag)</p>
+                    <p id="totalKostnad" class="text-3xl font-bold text-blue-900">25 000 kr</p>
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-600">Räntekostnad /mån</span>
+                        <span id="ranteKostnad" class="font-semibold">14 583 kr</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-600">Total amortering /mån</span>
+                        <span id="amorteringsKostnad" class="font-semibold">10 417 kr</span>
+                    </div>
+                    <div class="flex justify-between items-center text-green-700">
+                        <span class="text-sm">Ränteavdrag /mån (ca 30%)</span>
+                        <span id="ranteavdrag" class="font-semibold whitespace-nowrap">- 4 375 kr</span>
+                    </div>
+                    <div class="flex justify-between items-center text-green-800 font-bold pt-2 border-t mt-2">
+                        <span class="text-sm">Kostnad efter avdrag /mån</span>
+                        <span id="nettoKostnad" class="text-lg">20 625 kr</span>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-600">Lånebehov</span>
+                        <span id="lanebehov" class="font-semibold">6 250 000 kr</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-600">Belåningsgrad</span>
+                        <span id="belaningsgrad" class="font-semibold text-orange-600">79,62 %</span>
+                    </div>
+                     <div class="flex justify-between items-center">
+                        <span class="text-slate-600">Skuldkvot</span>
+                        <span id="skuldkvot" class="font-semibold">4,20</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-600">Tvingande amortering</span>
+                        <span id="amorteringskrav" class="font-semibold bg-orange-100 text-orange-800 px-2 py-1 rounded-md">2,00 %</span>
+                    </div>
+                    <p id="amorteringInfo" class="text-xs text-slate-500 text-center pt-2"></p>
+                </div>
+            </section>
+        </main>
+        
+        <!-- Scenario Manager -->
+        <section id="scenario-manager" class="mt-8 bg-white p-6 rounded-2xl shadow-sm">
+            <h2 class="text-xl font-bold border-b pb-2 mb-4">Scenariohanterare</h2>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <input type="text" id="scenarioName" placeholder="Namnge ditt scenario..." class="flex-grow p-2 border border-slate-300 rounded-lg">
+                <button id="saveScenarioBtn" class="bg-blue-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-blue-700 transition-colors">Spara nuvarande scenario</button>
+            </div>
+            <div id="scenarioList" class="mt-4 space-y-2">
+                <!-- Saved scenarios will be listed here -->
+            </div>
+        </section>
+
+        <footer id="export-buttons" class="mt-8 text-center space-x-4">
+            <button id="export-csv" class="bg-green-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-green-700 transition-colors">
+                Exportera som CSV (Excel)
+            </button>
+            <button id="print-pdf" class="bg-gray-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-gray-700 transition-colors">
+                Skriv ut / Spara som PDF
+            </button>
+        </footer>
+
+    </div>
+
+    <div id="toast" class="toast">Länk kopierad till urklipp!</div>
+
+    <script>
+        // --- DOM Elements ---
+        const kopeskillingSlider = document.getElementById('kopeskilling');
+        const kopeskillingNum = document.getElementById('kopeskillingNum');
+        const kontantinsatsSlider = document.getElementById('kontantinsats');
+        const kontantinsatsNum = document.getElementById('kontantinsatsNum');
+        const rantaSlider = document.getElementById('ranta');
+        const rantaNum = document.getElementById('rantaNum');
+        const arsinkomstSlider = document.getElementById('arsinkomst');
+        const arsinkomstNum = document.getElementById('arsinkomstNum');
+        const extraAmorteringSlider = document.getElementById('extraAmortering');
+        const extraAmorteringNum = document.getElementById('extraAmorteringNum');
+
+        const totalKostnadEl = document.getElementById('totalKostnad');
+        const ranteKostnadEl = document.getElementById('ranteKostnad');
+        const amorteringsKostnadEl = document.getElementById('amorteringsKostnad');
+        const lanebehovEl = document.getElementById('lanebehov');
+        const belaningsgradEl = document.getElementById('belaningsgrad');
+        const skuldkvotEl = document.getElementById('skuldkvot');
+        const amorteringskravEl = document.getElementById('amorteringskrav');
+        const amorteringInfoEl = document.getElementById('amorteringInfo');
+        const ranteavdragEl = document.getElementById('ranteavdrag');
+        const nettoKostnadEl = document.getElementById('nettoKostnad');
+        
+        const exportCsvBtn = document.getElementById('export-csv');
+        const printPdfBtn = document.getElementById('print-pdf');
+        
+        const scenarioNameInput = document.getElementById('scenarioName');
+        const saveScenarioBtn = document.getElementById('saveScenarioBtn');
+        const scenarioListEl = document.getElementById('scenarioList');
+        const toastEl = document.getElementById('toast');
+
+
+        // --- Event Listeners ---
+        const inputs = [kopeskillingSlider, kopeskillingNum, kontantinsatsSlider, kontantinsatsNum, rantaSlider, rantaNum, arsinkomstSlider, arsinkomstNum, extraAmorteringSlider, extraAmorteringNum];
+        inputs.forEach(input => input.addEventListener('input', handleInputChange));
+
+        const numInputsToFormat = [kopeskillingNum, kontantinsatsNum, arsinkomstNum, extraAmorteringNum];
+        numInputsToFormat.forEach(input => {
+            input.addEventListener('blur', (e) => {
+                const rawValue = String(e.target.value).replace(/\s/g, '');
+                const numValue = parseFloat(rawValue);
+                if (!isNaN(numValue)) {
+                    e.target.value = formatNumber(numValue);
+                }
+            });
+        });
+
+        exportCsvBtn.addEventListener('click', exportToCSV);
+        printPdfBtn.addEventListener('click', () => window.print());
+        saveScenarioBtn.addEventListener('click', saveScenario);
+        scenarioListEl.addEventListener('click', handleScenarioListClick);
+
+        // --- Functions ---
+        
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+        }
+
+        function formatNumber(value) {
+            return new Intl.NumberFormat('sv-SE').format(value);
+        }
+
+        function unformatNumber(value) {
+            return parseFloat(String(value).replace(/\s/g, '').replace(',', '.')) || 0;
+        }
+
+        function handleInputChange(e) {
+            const source = e.target;
+            const isSlider = source.type === 'range';
+
+            if (isSlider) {
+                const numInput = document.getElementById(source.id + 'Num');
+                if (source.id !== 'ranta') {
+                    numInput.value = formatNumber(source.value);
+                } else {
+                    numInput.value = source.value;
+                }
+            } else { // Text input changed
+                const slider = document.getElementById(source.id.replace('Num', ''));
+                const rawValue = unformatNumber(source.value);
+                if (slider && !isNaN(rawValue)) {
+                    slider.value = rawValue;
+                }
+            }
+            calculate();
+        }
+
+        function calculate() {
+            // 1. Read input values and unformat them
+            const kopeskilling = unformatNumber(kopeskillingNum.value);
+            const kontantinsats = unformatNumber(kontantinsatsNum.value);
+            const ranta = parseFloat(rantaNum.value) / 100 || 0;
+            const arsinkomst = unformatNumber(arsinkomstNum.value);
+            const extraAmortering = unformatNumber(extraAmorteringNum.value);
+
+            // 2. Calculate key metrics
+            const lanebehov = Math.max(0, kopeskilling - kontantinsats);
+            const belaningsgrad = kopeskilling > 0 ? lanebehov / kopeskilling : 0;
+            const skuldkvot = arsinkomst > 0 ? lanebehov / arsinkomst : 0;
+
+            // 3. Determine amortization requirements
+            let amorteringskravBelaning = 0;
+            if (belaningsgrad > 0.7) {
+                amorteringskravBelaning = 0.02;
+            } else if (belaningsgrad > 0.5) {
+                amorteringskravBelaning = 0.01;
+            }
+
+            const amorteringskravSkuld = skuldkvot > 4.5 ? 0.01 : 0;
+            const totaltAmorteringskrav = amorteringskravBelaning + amorteringskravSkuld;
+            
+            // 4. Calculate monthly costs
+            const ranteKostnadManad = (lanebehov * ranta) / 12;
+            const tvingandeAmorteringManad = (lanebehov * totaltAmorteringskrav) / 12;
+            const totalAmorteringManad = tvingandeAmorteringManad + extraAmortering;
+            const totalKostnadManad = ranteKostnadManad + totalAmorteringManad;
+
+            // 5. Calculate tax deduction (ränteavdrag)
+            const ranteKostnadAr = ranteKostnadManad * 12;
+            const ranteavdragManad = (ranteKostnadAr * 0.30) / 12;
+            const nettoKostnadManad = totalKostnadManad - ranteavdragManad;
+
+            // 6. Update UI
+            totalKostnadEl.textContent = formatCurrency(totalKostnadManad);
+            ranteKostnadEl.textContent = formatCurrency(ranteKostnadManad);
+            amorteringsKostnadEl.textContent = formatCurrency(totalAmorteringManad);
+            lanebehovEl.textContent = formatCurrency(lanebehov);
+            belaningsgradEl.textContent = (belaningsgrad * 100).toFixed(2) + ' %';
+            skuldkvotEl.textContent = skuldkvot.toFixed(2);
+            amorteringskravEl.textContent = (totaltAmorteringskrav * 100).toFixed(2) + ' %';
+            ranteavdragEl.textContent = `- ${formatCurrency(ranteavdragManad)}`;
+            nettoKostnadEl.textContent = formatCurrency(nettoKostnadManad);
+
+            // Update info text
+            let infoText = '';
+            if (amorteringskravBelaning > 0) {
+                infoText += `Belåningsgrad > ${amorteringskravBelaning === 0.02 ? '70' : '50'}%. `;
+            }
+            if (amorteringskravSkuld > 0) {
+                infoText += `Skuldkvot > 4.5.`;
+            }
+            if (infoText === '') {
+                infoText = 'Inget tvingande amorteringskrav.';
+            }
+            amorteringInfoEl.textContent = infoText;
+            
+            // Update colors based on thresholds
+            belaningsgradEl.className = 'font-semibold';
+            if (belaningsgrad > 0.85) belaningsgradEl.classList.add('text-red-600');
+            else if (belaningsgrad > 0.7) belaningsgradEl.classList.add('text-orange-600');
+            else belaningsgradEl.classList.add('text-green-600');
+
+            skuldkvotEl.className = 'font-semibold';
+            if (skuldkvot > 4.5) skuldkvotEl.classList.add('text-red-600');
+            else if (skuldkvot > 3.5) skuldkvotEl.classList.add('text-orange-600');
+            else skuldkvotEl.classList.add('text-green-600');
+        }
+
+        function exportToCSV() {
+            const data = [
+                ["Kategori", "Värde"],
+                ["--- DINA VÄRDEN ---", ""],
+                ["Köpeskilling", kopeskillingNum.value],
+                ["Kontantinsats", kontantinsatsNum.value],
+                ["Räntesats (%)", rantaNum.value],
+                ["Hushållets årsinkomst", arsinkomstNum.value],
+                ["Extra amortering /mån", extraAmorteringNum.value],
+                ["", ""],
+                ["--- RESULTAT ---", ""],
+                ["Total månadskostnad (före avdrag)", totalKostnadEl.textContent],
+                ["Räntekostnad /mån", ranteKostnadEl.textContent],
+                ["Total amortering /mån", amorteringsKostnadEl.textContent],
+                ["Ränteavdrag /mån (ca 30%)", ranteavdragEl.textContent],
+                ["Kostnad efter avdrag /mån", nettoKostnadEl.textContent],
+                ["", ""],
+                ["--- NYCKELTAL ---", ""],
+                ["Lånebehov", lanebehovEl.textContent],
+                ["Belåningsgrad", belaningsgradEl.textContent],
+                ["Skuldkvot", skuldkvotEl.textContent],
+                ["Tvingande amortering", amorteringskravEl.textContent],
+            ];
+
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
+                + data.map(e => `"${e[0]}","${e[1]}"`).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "bolanekalkyl.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // --- SCENARIO FUNCTIONS ---
+
+        function getScenarios() {
+            return JSON.parse(localStorage.getItem('bolaneScenarios')) || [];
+        }
+
+        function saveScenario() {
+            const name = scenarioNameInput.value.trim();
+            if (!name) {
+                alert('Vänligen namnge ditt scenario.');
+                return;
+            }
+
+            const scenario = {
+                id: Date.now(), // Unique ID for each scenario
+                name: name,
+                values: {
+                    kopeskilling: unformatNumber(kopeskillingNum.value),
+                    kontantinsats: unformatNumber(kontantinsatsNum.value),
+                    ranta: parseFloat(rantaNum.value),
+                    arsinkomst: unformatNumber(arsinkomstNum.value),
+                    extraAmortering: unformatNumber(extraAmorteringNum.value)
+                }
+            };
+
+            const scenarios = getScenarios();
+            scenarios.push(scenario);
+            localStorage.setItem('bolaneScenarios', JSON.stringify(scenarios));
+            
+            scenarioNameInput.value = '';
+            renderScenarioList();
+        }
+
+        function renderScenarioList() {
+            const scenarios = getScenarios();
+            scenarioListEl.innerHTML = '';
+            if (scenarios.length === 0) {
+                scenarioListEl.innerHTML = `<p class="text-slate-500 text-sm text-center">Inga sparade scenarier.</p>`;
+                return;
+            }
+
+            scenarios.forEach((scenario, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between p-2 bg-slate-50 rounded-lg';
+                li.innerHTML = `
+                    <span class="font-medium">${scenario.name}</span>
+                    <div class="space-x-2">
+                        <button data-index="${index}" class="load-btn text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded hover:bg-blue-200">Ladda</button>
+                        <button data-index="${index}" class="share-btn text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded hover:bg-purple-200">Dela</button>
+                        <button data-index="${index}" class="delete-btn text-sm bg-red-100 text-red-800 px-3 py-1 rounded hover:bg-red-200">Ta bort</button>
+                    </div>
+                `;
+                scenarioListEl.appendChild(li);
+            });
+        }
+        
+        function handleScenarioListClick(e) {
+            const index = e.target.dataset.index;
+            if (index === undefined) return;
+
+            if (e.target.classList.contains('load-btn')) {
+                loadScenario(index);
+            } else if (e.target.classList.contains('share-btn')) {
+                shareScenario(index);
+            } else if (e.target.classList.contains('delete-btn')) {
+                let scenarios = getScenarios();
+                scenarios.splice(index, 1);
+                localStorage.setItem('bolaneScenarios', JSON.stringify(scenarios));
+                renderScenarioList();
+            }
+        }
+
+        function loadScenario(index) {
+            const scenarios = getScenarios();
+            const scenario = scenarios[index];
+            if (!scenario) return;
+
+            // Update all input fields
+            kopeskillingNum.value = formatNumber(scenario.values.kopeskilling);
+            kopeskillingSlider.value = scenario.values.kopeskilling;
+            kontantinsatsNum.value = formatNumber(scenario.values.kontantinsats);
+            kontantinsatsSlider.value = scenario.values.kontantinsats;
+            rantaNum.value = scenario.values.ranta;
+            rantaSlider.value = scenario.values.ranta;
+            arsinkomstNum.value = formatNumber(scenario.values.arsinkomst);
+            arsinkomstSlider.value = scenario.values.arsinkomst;
+            extraAmorteringNum.value = formatNumber(scenario.values.extraAmortering);
+            extraAmorteringSlider.value = scenario.values.extraAmortering;
+
+            calculate();
+        }
+
+        function shareScenario(index) {
+            const scenarios = getScenarios();
+            const scenario = scenarios[index];
+            if (!scenario) return;
+
+            const dataToShare = JSON.stringify(scenario);
+            const encodedData = btoa(dataToShare); // Encode data to Base64
+            
+            const url = new URL(window.location.href);
+            url.searchParams.set('scenario', encodedData);
+            
+            navigator.clipboard.writeText(url.toString()).then(() => {
+                showToast("Länk för att dela scenariot har kopierats!");
+            }).catch(err => {
+                console.error('Kunde inte kopiera länk: ', err);
+                alert('Kunde inte kopiera länken automatiskt. Vänligen kopiera den manuellt.');
+            });
+        }
+        
+        function loadScenarioFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const scenarioData = urlParams.get('scenario');
+
+            if (scenarioData) {
+                try {
+                    const decodedData = atob(scenarioData); // Decode Base64 data
+                    const scenario = JSON.parse(decodedData);
+                    
+                    // Pre-fill calculator with shared data
+                    kopeskillingNum.value = formatNumber(scenario.values.kopeskilling);
+                    kopeskillingSlider.value = scenario.values.kopeskilling;
+                    kontantinsatsNum.value = formatNumber(scenario.values.kontantinsats);
+                    kontantinsatsSlider.value = scenario.values.kontantinsats;
+                    rantaNum.value = scenario.values.ranta;
+                    rantaSlider.value = scenario.values.ranta;
+                    arsinkomstNum.value = formatNumber(scenario.values.arsinkomst);
+                    arsinkomstSlider.value = scenario.values.arsinkomst;
+                    extraAmorteringNum.value = formatNumber(scenario.values.extraAmortering);
+                    extraAmorteringSlider.value = scenario.values.extraAmortering;
+
+                    // Pre-fill name so it's easy to save
+                    scenarioNameInput.value = `(Delad) ${scenario.name}`;
+                    
+                    calculate();
+
+                } catch (e) {
+                    console.error("Kunde inte ladda delat scenario från URL.", e);
+                }
+            }
+        }
+
+        function showToast(message) {
+            toastEl.textContent = message;
+            toastEl.classList.add("show");
+            setTimeout(() => { toastEl.classList.remove("show"); }, 3000);
+        }
+
+        // Initial setup on page load
+        window.onload = function() {
+            // Format initial values in the text boxes
+            numInputsToFormat.forEach(input => {
+                input.value = formatNumber(input.value);
+            });
+            
+            // Render saved scenarios
+            renderScenarioList();
+            
+            // Check for a shared scenario in the URL
+            loadScenarioFromURL();
+
+            // Run initial calculation if no shared scenario was loaded
+            if (!new URLSearchParams(window.location.search).has('scenario')) {
+                calculate();
+            }
+        };
+    </script>
+
+</body>
+</html>

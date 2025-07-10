@@ -197,9 +197,10 @@
         <!-- Scenario Manager -->
         <section id="scenario-manager" class="mt-8 bg-white p-6 rounded-2xl shadow-sm">
             <h2 class="text-xl font-bold border-b pb-2 mb-4">Scenariohanterare</h2>
-            <div class="flex flex-col sm:flex-row gap-4">
+            <div class="flex flex-col sm:flex-row gap-4 items-center">
                 <input type="text" id="scenarioName" placeholder="Namnge ditt scenario..." class="flex-grow p-2 border border-slate-300 rounded-lg">
                 <button id="saveScenarioBtn" class="bg-blue-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-blue-700 transition-colors">Spara nuvarande scenario</button>
+                <button id="cancelUpdateBtn" class="hidden text-sm text-slate-500 hover:text-slate-700 underline">Avbryt</button>
             </div>
             <div id="scenarioList" class="mt-4 space-y-2">
                 <!-- Saved scenarios will be listed here -->
@@ -220,6 +221,9 @@
     <div id="toast" class="toast">Länk kopierad till urklipp!</div>
 
     <script>
+        // --- GLOBAL STATE ---
+        let activeScenarioId = null;
+
         // --- DOM Elements ---
         const kopeskillingSlider = document.getElementById('kopeskilling');
         const kopeskillingNum = document.getElementById('kopeskillingNum');
@@ -250,6 +254,7 @@
         const saveScenarioBtn = document.getElementById('saveScenarioBtn');
         const scenarioListEl = document.getElementById('scenarioList');
         const toastEl = document.getElementById('toast');
+        const cancelUpdateBtn = document.getElementById('cancelUpdateBtn');
 
 
         // --- Event Listeners ---
@@ -269,8 +274,9 @@
 
         exportCsvBtn.addEventListener('click', exportToCSV);
         printPdfBtn.addEventListener('click', () => window.print());
-        saveScenarioBtn.addEventListener('click', saveScenario);
+        saveScenarioBtn.addEventListener('click', saveOrUpdateScenario);
         scenarioListEl.addEventListener('click', handleScenarioListClick);
+        cancelUpdateBtn.addEventListener('click', cancelUpdateMode);
 
         // --- Functions ---
         
@@ -420,30 +426,41 @@
             return JSON.parse(localStorage.getItem('bolaneScenarios')) || [];
         }
 
-        function saveScenario() {
+        function saveOrUpdateScenario() {
             const name = scenarioNameInput.value.trim();
             if (!name) {
                 alert('Vänligen namnge ditt scenario.');
                 return;
             }
 
-            const scenario = {
-                id: Date.now(), // Unique ID for each scenario
-                name: name,
-                values: {
-                    kopeskilling: unformatNumber(kopeskillingNum.value),
-                    kontantinsats: unformatNumber(kontantinsatsNum.value),
-                    ranta: parseFloat(rantaNum.value),
-                    arsinkomst: unformatNumber(arsinkomstNum.value),
-                    extraAmortering: unformatNumber(extraAmorteringNum.value)
-                }
+            const scenarios = getScenarios();
+            const currentValues = {
+                kopeskilling: unformatNumber(kopeskillingNum.value),
+                kontantinsats: unformatNumber(kontantinsatsNum.value),
+                ranta: parseFloat(rantaNum.value),
+                arsinkomst: unformatNumber(arsinkomstNum.value),
+                extraAmortering: unformatNumber(extraAmorteringNum.value)
             };
 
-            const scenarios = getScenarios();
-            scenarios.push(scenario);
+            if (activeScenarioId !== null) {
+                // Update existing scenario
+                const scenarioIndex = scenarios.findIndex(s => s.id === activeScenarioId);
+                if (scenarioIndex > -1) {
+                    scenarios[scenarioIndex].name = name;
+                    scenarios[scenarioIndex].values = currentValues;
+                }
+            } else {
+                // Create new scenario
+                const newScenario = {
+                    id: Date.now(),
+                    name: name,
+                    values: currentValues
+                };
+                scenarios.push(newScenario);
+            }
+
             localStorage.setItem('bolaneScenarios', JSON.stringify(scenarios));
-            
-            scenarioNameInput.value = '';
+            cancelUpdateMode();
             renderScenarioList();
         }
 
@@ -473,24 +490,26 @@
         function handleScenarioListClick(e) {
             const index = e.target.dataset.index;
             if (index === undefined) return;
+            
+            const scenarios = getScenarios();
+            const scenario = scenarios[index];
 
             if (e.target.classList.contains('load-btn')) {
-                loadScenario(index);
+                loadScenario(scenario);
             } else if (e.target.classList.contains('share-btn')) {
-                shareScenario(index);
+                shareScenario(scenario);
             } else if (e.target.classList.contains('delete-btn')) {
-                let scenarios = getScenarios();
                 scenarios.splice(index, 1);
                 localStorage.setItem('bolaneScenarios', JSON.stringify(scenarios));
                 renderScenarioList();
             }
         }
 
-        function loadScenario(index) {
-            const scenarios = getScenarios();
-            const scenario = scenarios[index];
+        function loadScenario(scenario) {
             if (!scenario) return;
 
+            activeScenarioId = scenario.id;
+            
             // Update all input fields
             kopeskillingNum.value = formatNumber(scenario.values.kopeskilling);
             kopeskillingSlider.value = scenario.values.kopeskilling;
@@ -502,13 +521,26 @@
             arsinkomstSlider.value = scenario.values.arsinkomst;
             extraAmorteringNum.value = formatNumber(scenario.values.extraAmortering);
             extraAmorteringSlider.value = scenario.values.extraAmortering;
+            
+            scenarioNameInput.value = scenario.name;
+            saveScenarioBtn.textContent = 'Uppdatera scenario';
+            saveScenarioBtn.classList.replace('bg-blue-600', 'bg-orange-500');
+            saveScenarioBtn.classList.replace('hover:bg-blue-700', 'hover:bg-orange-600');
+            cancelUpdateBtn.classList.remove('hidden');
 
             calculate();
         }
 
-        function shareScenario(index) {
-            const scenarios = getScenarios();
-            const scenario = scenarios[index];
+        function cancelUpdateMode() {
+            activeScenarioId = null;
+            scenarioNameInput.value = '';
+            saveScenarioBtn.textContent = 'Spara nuvarande scenario';
+            saveScenarioBtn.classList.replace('bg-orange-500', 'bg-blue-600');
+            saveScenarioBtn.classList.replace('hover:bg-orange-600', 'hover:bg-blue-700');
+            cancelUpdateBtn.classList.add('hidden');
+        }
+
+        function shareScenario(scenario) {
             if (!scenario) return;
 
             const dataToShare = JSON.stringify(scenario);
@@ -534,22 +566,13 @@
                     const decodedData = atob(scenarioData); // Decode Base64 data
                     const scenario = JSON.parse(decodedData);
                     
-                    // Pre-fill calculator with shared data
-                    kopeskillingNum.value = formatNumber(scenario.values.kopeskilling);
-                    kopeskillingSlider.value = scenario.values.kopeskilling;
-                    kontantinsatsNum.value = formatNumber(scenario.values.kontantinsats);
-                    kontantinsatsSlider.value = scenario.values.kontantinsats;
-                    rantaNum.value = scenario.values.ranta;
-                    rantaSlider.value = scenario.values.ranta;
-                    arsinkomstNum.value = formatNumber(scenario.values.arsinkomst);
-                    arsinkomstSlider.value = scenario.values.arsinkomst;
-                    extraAmorteringNum.value = formatNumber(scenario.values.extraAmortering);
-                    extraAmorteringSlider.value = scenario.values.extraAmortering;
-
+                    loadScenario(scenario);
                     // Pre-fill name so it's easy to save
                     scenarioNameInput.value = `(Delad) ${scenario.name}`;
-                    
-                    calculate();
+                    // Since it's a shared link, don't put it in update mode immediately
+                    activeScenarioId = null;
+                    saveScenarioBtn.textContent = 'Spara som nytt scenario';
+
 
                 } catch (e) {
                     console.error("Kunde inte ladda delat scenario från URL.", e);
